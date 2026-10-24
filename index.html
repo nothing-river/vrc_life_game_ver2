@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VRC人生ゲーム</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=2026.10.23-a">
+</head>
+<body>
+<script>window.APP_VER="2026.10.23-a"</script>
+<section id="setup"></section>
+<main id="game" hidden>
+  <div id="turn"></div>
+  <div id="boardwrap"><div id="board"></div></div>
+  <aside id="panel">
+    <div id="event"><div id="evtop"><span id="evicon"></span><div id="evh"></div></div><div id="msg"></div><div id="evbar"><i></i></div></div>
+    <div id="quiz" hidden></div>
+    <div class="ctl"><div id="dice">🎲</div><button id="roll" class="big">サイコロを振る</button></div>
+    <div id="route"></div><div id="items"></div>
+    <div id="mission"></div><div id="stat"></div><div id="tip" hidden></div>
+    <details id="legend"><summary>📖 アイコンの見かた</summary><div id="legendBody"></div></details>
+    <button id="editme" hidden>✏️ 名前・写真を変更</button>
+  </aside>
+  <aside id="logbox"><h3>📜 ログ</h3><div id="orderbar"></div><ol id="log"></ol></aside>
+</main>
+<dialog id="result"></dialog>
+<dialog id="prof"></dialog>
+<dialog id="mini"></dialog>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="js/data.js?v=2026.10.23-a"></script>
+<script src="js/ui.js?v=2026.10.23-a"></script>
+<script src="js/net.js?v=2026.10.23-a"></script>
+<script src="js/game.js?v=2026.10.23-a"></script>
+<script src="js/extra.js?v=2026.10.23-a"></script>
+<script src="js/main.js?v=2026.10.23-a"></script>
+</body>
+</html>
