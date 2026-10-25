@@ -14,7 +14,7 @@ function initUI(ps, turns, rules) {
   const qsets = ps.map(p => p.qs || []); // 登録された問題（ホスト/同じ端末のみ保持。回答は他の人へ送らない）
   const order = ps.map((_, i) => i); // 手番の順番はランダム（入室順にしない）
   for (let i = order.length - 1; i > 0; i--) { const j = rnd(0, i); [order[i], order[j]] = [order[j], order[i]]; }
-  G = { order, oi: 0, ps: ps.map(p => ({ ...p, pos: 0, money: rules.money || START_MONEY, love: 0, trait: null, royal: null, style: null, job: null, mission: null, st: {}, ally: null, allyN: 0, muted: 0, exposed: false, debt: 0, regulars: 0, annTurn: 0, revenge: -1, sugar: 0, friends: 0, exes: 0, live: false, married: false, fbt: false, pc: false, fame: 0, skip: 0, items: ['dice2'], done: false, rank: 0 })),
+  G = { order, oi: 0, ps: ps.map(p => ({ ...p, pos: 0, money: rules.money || START_MONEY, love: 0, trait: null, royal: null, style: null, job: 'none', mission: null, st: {}, ally: null, allyN: 0, muted: 0, exposed: false, debt: 0, regulars: 0, annTurn: 0, revenge: -1, sugar: 0, friends: 0, exes: 0, live: false, married: false, fbt: false, pc: false, fame: 0, skip: 0, items: ['dice2'], done: false, rank: 0 })),
     t: order[0], round: 1, turns: turns || DEFAULT_TURNS, fog: !!fog, rules, global: null, ask: null, curType: null, hid: null, quiz: null, stage: 'main', fin: 0, busy: false, over: false };
   G.qpool = qsets.flatMap((a, i) => a.map(q => ({ ...q, author: i }))); G.ps.forEach(p => { delete p.qs; });
   if (G.fog) G.hid = makeHid(LAYOUT.length, false);
@@ -39,7 +39,7 @@ function onAnswer(v) {
 }
 async function afterStart() {
   say('ゲーム開始！'); head(G.fog ? '🌫️ 霧モード：見えないマスは止まると公開' : '📍 イベント'); G.busy = true; renderStat();
-  await pickJobs(); assignMissions(); G.busy = false;
+  assignMissions(); G.busy = false;
   say('準備OK！\nサイコロを振ろう🎲'); announce();
   if (G.ps[G.t].auto) setTimeout(turn, 900);
 }
@@ -469,4 +469,4 @@ function finish() {
     ${Net.on ? '<p class="lead">ホストが「ルームに戻る」を押すと、戻ってきた人が同じルームに集まります。</p>' : ''}`;
   $('#result').showModal();
 }
-window.VER_GAME = '2026.10.24-a';
+window.VER_GAME = '2026.10.24-b';

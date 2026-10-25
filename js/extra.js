@@ -20,7 +20,10 @@ function boost(p, n) {
     }
     return n * f;
   }
-  return G.global && G.global.lossF ? n * G.global.lossF : n;
+  const j = JOBS[p.job]; let f = 1;
+  if (j && j.lossF) f *= j.lossF;
+  if (G.global && G.global.lossF) f *= G.global.lossF;
+  return n * f;
 }
 function gainSugar(p) { sfx('love'); p.sugar++; if (p.sugar === 1) { p.love = 5; p.trait = pick(Object.keys(TRAITS)); p.annTurn = 0; } }
 function breakAlly(p, o) { p.ally = null; p.allyN = 0; if (o) { o.ally = null; o.allyN = 0; } log(`🔗 ${N(p)}${o ? 'と' + N(o) : ''}の同盟が終わった`); }
@@ -166,22 +169,27 @@ async function passiveIncome(p) {
 
 // ===== 全体イベント（ラウンドの頭に全員へ効果）=====
 async function rollGlobal() {
-  if (G.rules && G.rules.events === false) return;
+  const off = G.rules && G.rules.events === false;
   if (G.global && --G.global.left <= 0) { log(`🌐 全体イベント終了：${G.global.name}`); G.global = null; renderStat(); }
-  if (G.global || G.round < 2 || Math.random() > 0.45) return;
-  const g = pick(GLOBALS);
-  sfx('global'); head(`🌐 全体イベント発生！${g.icon}${g.name}`, 'start'); say(`${g.icon} ${g.name}\n${g.desc}`); log(`🌐 全体イベント：${g.icon}${g.name}（${g.desc}）`);
+  let g;
+  if (!G.fairDone && G.round >= 2) { G.fairDone = true; g = GLOBALS.find(x => x.jobFair); } // 最初の全体イベントは必ず転職フェア（全員が職業を選べる）
+  else if (off || G.global || G.round < 2 || Math.random() > 0.45) return;
+  else g = pick(GLOBALS.filter(x => !x.jobFair || rnd(1, 3) === 1));
+  const left = g.rounds > 0 ? rnd(3, 7) : 0; // 続く全体イベントは3〜7ラウンド
+  const dur = left ? `（${left}ラウンド続く）` : '';
+  sfx('global'); head(`🌐 全体イベント発生！${g.icon}${g.name}`, 'start'); say(`${g.icon} ${g.name}\n${g.desc}${dur}`); log(`🌐 全体イベント：${g.icon}${g.name}（${g.desc}）${dur}`);
   if (g.skipAll) G.ps.forEach(q => { if (!q.done) q.skip += 1; });
   if (g.gift) G.ps.forEach(q => { if (!q.done) q.money += Math.round(g.gift * K / 1000) * 1000; });
-  if (g.rounds > 0) G.global = { icon: g.icon, name: g.name, desc: g.desc, left: g.rounds, types: g.types || null, f: g.f || 1, lossF: g.lossF || 0 };
+  if (left) G.global = { icon: g.icon, name: g.name, desc: g.desc, left, types: g.types || null, f: g.f || 1, lossF: g.lossF || 0 };
   renderStat(); await sleep(3500);
+  if (g.jobFair) await pickJobs();
 }
 
 // ===== 開始時：職業の選択・隠しミッションの配布 =====
 async function pickJobs() {
   const keys = Object.keys(JOBS), seats = G.ps.map((_, i) => i);
-  head('🎓 職業を選ぼう', 'start'); say('🎓 職業を選んでください\n得意なマスの収入が増えます');
-  const ans = await askMany(seats, '🎓 職業を選ぼう（得意なマスの収入が増える）', keys.map(k => `${JOBS[k].icon}${JOBS[k].name}：${JOBS[k].desc}`), 'choice', 45);
+  head('💼 職業を選ぼう（無職もOK）', 'start'); say('💼 全員が職業を選べます\n得意なマスの収入が増えます（ターンは進みません）');
+  const ans = await askMany(seats, '💼 職業を選ぼう（得意なマスの収入が増える・無職もOK）', keys.map(k => `${JOBS[k].icon}${JOBS[k].name}：${JOBS[k].desc}`), 'choice', 45);
   seats.forEach(s => { G.ps[s].job = keys[ans[s]]; log(`${N(G.ps[s])}の職業：${JOBS[keys[ans[s]]].icon}${JOBS[keys[ans[s]]].name}`); });
 }
 function assignMissions() {
@@ -356,4 +364,4 @@ H.marry = async p => {
   if (!was && p.married) { const os = foesOf(p); if (os.length) { await sleep(1500); const o = pick(os); add(o, 500, '💐 結婚式のブーケをキャッチ！'); if (!o.sugar && rnd(1, 3) === 1) { gainSugar(o); note(o, 'ブーケがきっかけでお砂糖ができた🍬'); } } }
 };
 H.ex = async p => { const e0 = p.exes, s0 = p.sugar; await _ex(p); if (p.exes < e0 && p.sugar > s0) bump(p, 'reunion'); };
-window.VER_EXTRA = '2026.10.24-a';
+window.VER_EXTRA = '2026.10.24-b';

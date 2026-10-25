@@ -281,7 +281,7 @@ function openProfile() {
   $('#psave').onclick = () => { d.close(); applyProfile(cleanProfile({ name: d.querySelector('.nm').value.trim(), img, color: cc.get() }, me.name)); };
   d.showModal();
 }
-window.VER_UI = '2026.10.24-a';
+window.VER_UI = '2026.10.24-b';
 
 // ===== クイズ：問題の登録エディタ（ロビー/設定画面） =====
 let _qid = 0;

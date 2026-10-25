@@ -146,4 +146,4 @@ function backToRoom() {
     $('#lob').innerHTML = '<p class="lead">ホストがルームに戻るのを待っています…</p>';
   }
 }
-window.VER_NET = '2026.10.24-a';
+window.VER_NET = '2026.10.24-b';

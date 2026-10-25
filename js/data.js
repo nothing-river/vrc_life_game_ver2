@@ -110,7 +110,7 @@ const BADGES = {
   regs:   { icon: '🎪', name: '常連', desc: '集会の常連。1人につき集会の収入+15%（最大5人）' },
   mission:{ icon: '🎴', name: 'ミッション', desc: '隠しミッションを持っている（内容は本人だけが見られる）' }
 };
-window.VER_DATA = '2026.10.24-a';
+window.VER_DATA = '2026.10.24-b';
 
 // ===== クイズ（登録された問題を全員が回答）=====
 const ANSWER_SEC = 20;        // 回答の制限時間（秒）
@@ -120,6 +120,7 @@ const QMAX = 3;               // 1人が登録できる問題数
 
 // ===== 職業 / 着せ替え：得意なマスの収入が増える =====
 const JOBS = {
+  none:     { icon: '🛌', name: '無職', desc: '得意なマスはないが、出費（マイナス）が20%軽くなる', types: [], f: 1, lossF: 0.8 },
   maker:   { icon: '🛠️', name: 'ワールド制作者', desc: 'お仕事・制作投資・BOOTHの収入+30%', types: ['job', 'invest', 'shop'], f: 1.3 },
   dj:      { icon: '🎧', name: 'DJ', desc: 'DJ・個人イベ・集会の収入+30%', types: ['dj', 'event', 'shukai'], f: 1.3 },
   dancer:  { icon: '💃', name: 'ダンサー', desc: '撮影会・オフ会・個人イベ・デートの収入+25%', types: ['photo', 'offkai', 'event', 'date'], f: 1.25 },
@@ -160,12 +161,13 @@ const MISSIONS = {
 };
 const stc = (p, k) => (p.st && p.st[k]) || 0;
 
-// ===== 全体イベント（ラウンドの頭に全員へ効果）=====
+// ===== 全体イベント（ラウンドの頭に全員へ効果）。rounds:1 のものは 3〜7ラウンド続く／rounds:0 は一回きり =====
 const GLOBALS = [
   { icon: '🎪', name: 'Vketシーズン', desc: '集会・個人イベ・DJ・撮影会の収入が2倍', rounds: 1, types: ['shukai', 'event', 'dj', 'photo'], f: 2 },
   { icon: '🛠️', name: 'サーバーメンテナンス', desc: '全員が次の手番を1回休み', rounds: 0, skipAll: true },
   { icon: '🏷️', name: '大型セール', desc: '出費（マイナス）が半分になる', rounds: 1, lossF: 0.5 },
   { icon: '📉', name: '円安インフレ', desc: '出費（マイナス）が1.5倍になる', rounds: 1, lossF: 1.5 },
   { icon: '💞', name: 'ラブ週間', desc: 'お砂糖・デート・オフ会・友達・結婚の収入が1.5倍', rounds: 1, types: ['sugar', 'date', 'offkai', 'friend', 'marry'], f: 1.5 },
-  { icon: '🎁', name: 'ワールドフェスタ', desc: '全員に臨時収入！', rounds: 0, gift: 600 }
+  { icon: '🎁', name: 'ワールドフェスタ', desc: '全員に臨時収入！', rounds: 0, gift: 600 },
+  { icon: '💼', name: '転職フェア', desc: '全員が職業を選び直せる（無職もOK。手番は進まない）', rounds: 0, jobFair: true }
 ];
