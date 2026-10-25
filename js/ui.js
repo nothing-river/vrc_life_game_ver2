@@ -211,7 +211,7 @@ function renderOrder() {
   el.innerHTML = '<span class="ol">🎲 手番の順番</span>' + G.order.map((si, k) => `${k ? '<i>→</i>' : ''}<span class="oi${si === G.t ? ' cur' : ''}${G.ps[si].done ? ' dn' : ''}">${fmt(`\u0001${si}\u0002`, true)}</span>`).join('');
 }
 function renderStat() {
-  renderTurn(); renderOrder(); renderQuiz();
+  renderTurn(); renderOrder(); renderGlobalBar(); audioTick(); renderQuiz();
   $('#stat').innerHTML = (G.order || G.ps.map((_, i) => i)).map((si, k) => { const p = G.ps[si]; return `
     <div class="pc ${si === G.t ? 'now' : ''}" style="${cv(p.color)}"><div class="pt">${tok(p)}<div><strong><i class="ord">${k + 1}</i>${esc(p.name)}${p.done ? ' 🏁' + p.rank + '位' : ''}</strong>
     <span class="mny">${yen(p.money)}</span></div></div><div class="chips">${chips(p, Net.on && si !== Net.seat && !p.exposed)}</div></div>`; }).join('');
@@ -245,10 +245,10 @@ const _head = (t, ty) => {
   $('#evh').textContent = fmt(t, false);
   const e = $('#event'); if (e.dataset) e.dataset.ty = ty || '';
   $('#evicon').textContent = ty && TYPES[ty] ? TYPES[ty].icon : '';
-  if (ty) _restart(e, 'pop');
+  if (ty) { _restart(e, 'pop'); _sfx(ty === 'duel' ? 'duel' : 'land'); bgmOverride = ty === 'duel' ? 'battle' : null; }
 };
 const head = (t, ty) => { _head(t, ty); Net.bc({ k: 'head', v: t, ty }); };
-const _sign = k => { const e = $('#event'); if (e && e.classList && e.classList.remove) e.classList.remove('plus', 'minus'); _restart(e, k); };
+const _sign = k => { _sfx(k === 'plus' ? 'plus' : 'minus'); const e = $('#event'); if (e && e.classList && e.classList.remove) e.classList.remove('plus', 'minus'); _restart(e, k); };
 const fx = k => { if (!k) return; _sign(k); Net.bc({ k: 'fx', v: k }); };
 const _hold = ms => { const b = $('#evbar i'); if (!b || !b.style) return; b.style.animation = 'none'; void b.offsetWidth; b.style.animation = `evbar ${ms}ms linear forwards`; };
 const hold = ms => { _hold(ms); Net.bc({ k: 'hold', ms }); };
@@ -281,7 +281,7 @@ function openProfile() {
   $('#psave').onclick = () => { d.close(); applyProfile(cleanProfile({ name: d.querySelector('.nm').value.trim(), img, color: cc.get() }, me.name)); };
   d.showModal();
 }
-window.VER_UI = '2026.10.23-a';
+window.VER_UI = '2026.10.24-a';
 
 // ===== クイズ：問題の登録エディタ（ロビー/設定画面） =====
 let _qid = 0;

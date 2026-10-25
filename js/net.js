@@ -56,6 +56,7 @@ function hostRoom(phrase, me, ui) {
           }
         }
         else if (m.k === 'pick' && G.ask) submitAns(c.seat, m.v);
+        else if (m.k === 'prog' && Net.started) hostProg(c.seat, m.p);
         else if (m.k === 'roll' && Net.started && G.t === c.seat) turn(m.i === undefined ? -1 : m.i);
       });
       c.on('close', () => {
@@ -108,6 +109,8 @@ function onGuestMsg(m, ui) {
       if (ch) renderBoard(); else if (hc) updateFog();
       G.ps = m.s.ps.map((p, i) => ({ ...p, img: IMGS[i] })); renderTokens(); renderStat(); break;
     case 'say': _say(m.v); break;
+    case 'sfx': _sfx(m.v); break;
+    case 'prog': _prog(m.seat, m.text); break;
     case 'head': _head(m.v, m.ty); break;
     case 'fx': _sign(m.v); break;
     case 'hold': _hold(m.ms); break;
@@ -143,4 +146,4 @@ function backToRoom() {
     $('#lob').innerHTML = '<p class="lead">ホストがルームに戻るのを待っています…</p>';
   }
 }
-window.VER_NET = '2026.10.23-a';
+window.VER_NET = '2026.10.24-a';

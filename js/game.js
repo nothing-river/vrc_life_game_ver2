@@ -52,6 +52,7 @@ function onRoll(i = -1) {
 function announce() { renderStat(); } // 手番表示は画面上部の「ターンバー」(renderTurn)が担当。イベント表示(#msg)とは独立
 
 async function rollDice(n = 1) {
+  sfx('roll');
   const r = () => [...Array(n)].map(() => rnd(1, 6));
   for (let i = 0; i < 9; i++) { showDice(r().join('+')); await sleep(70); }
   const v = r(), s = v.reduce((a, b) => a + b);
@@ -66,6 +67,7 @@ function add(p, n, text, fm = 0) {
   say(`${text}\n${n >= 0 ? '+' : ''}${yen(n)}${f}`); fx(n > 0 ? 'plus' : n < 0 ? 'minus' : null); renderStat();
 }
 function losesugar(p, n, why) {
+  sfx('break');
   n = Math.min(n, p.sugar); p.sugar -= n; p.exes += n; if (!p.sugar) { p.live = false; p.love = 0; p.trait = null; }
   say(`${why}
 ${n > 1 ? 'お砂糖' + n + '人と' : 'お砂糖と'}破局…💔`); log(`${N(p)}：${why}（お砂糖と破局）`); renderStat();
@@ -83,7 +85,7 @@ function giveItem(p, id) {
     got.forEach(i => reveal(i, true));
     say(`🔭 望遠鏡！霧が晴れた\n（${got.length}マス公開）`); log(`${N(p)}：望遠鏡で${got.length}マス公開`); return renderStat();
   }
-  const it = ITEMS[id];
+  const it = ITEMS[id]; sfx('item');
   if (p.items.length >= 3) return add(p, 300, `${it.icon}${it.name}は持ちきれないので売却`);
   p.items.push(id); say(`${it.icon} ${it.name}をゲット！`); log(`${N(p)}：${it.name}を入手`); renderStat();
 }
@@ -101,7 +103,7 @@ async function moveBy(p, n, delay) {
       p.pos = nx.length > 1 ? nx[await askRoute(p, p.pos)] : nx[0];
       if (p.pos === 0) { bump(p, 'laps'); add(p, 1000, 'ログインボーナス（1周）'); await sleep(500); }
     }
-    renderTokens(); await sleep(delay);
+    sfx('step'); renderTokens(); await sleep(delay);
   }
 }
 
@@ -163,7 +165,7 @@ async function toGoalStage() {
   say('🏁 ゴールステージへ！\nここからは一本道。ゴールを目指せ！'); log('ゴールステージ開始');
   await sleep(1800);
   [...G.ps].sort((a, b) => score(b) - score(a)).forEach((p, i) => p.pos = G.ps.length - 1 - i);
-  G.global = null; if (G.fog) G.hid = makeHid(LAYOUT2.length, true);
+  sfx('goal'); G.global = null; if (G.fog) G.hid = makeHid(LAYOUT2.length, true);
   G.stage = 'goal'; G.oi = 0; G.t = G.order[0];
   renderBoard(); renderTokens(); renderStat();
   log('所持金の多い順にスタート位置が前になった');
@@ -217,7 +219,7 @@ async function runQuiz(p) {
     win: winners.includes(i), note: def.t === 'num' && qAns[i] !== undefined ? `差 ${Math.abs(qAns[i] - def.ans)}` : '' }));
   const names = a => a.map(i => N(G.ps[i])).join('・');
   let summary;
-  if (winners.length) { summary = `${def.t === 'mc' ? '正解者' : '一番近かった人'}：${names(winners)}（賞金あり）`; winners.forEach(i => { bump(G.ps[i], 'quiz'); add(G.ps[i], def.t === 'mc' ? QUIZ_REWARD : QUIZ_REWARD * 1.5, 'クイズ賞金！'); }); }
+  if (winners.length) { summary = `${def.t === 'mc' ? '正解者' : '一番近かった人'}：${names(winners)}（賞金あり）`; sfx(winners.length ? 'quiz_ok' : 'quiz_ng'); winners.forEach(i => { bump(G.ps[i], 'quiz'); add(G.ps[i], def.t === 'mc' ? QUIZ_REWARD : QUIZ_REWARD * 1.5, 'クイズ賞金！'); }); }
   else { summary = `正解者なし！出題者 ${N(G.ps[def.author])} にボーナス`; add(G.ps[def.author], QUIZ_AUTHOR_BONUS, '誰も当てられず出題者ボーナス'); }
   G.quiz.phase = 'reveal'; G.quiz.reveal = { correct, rows, summary };
   say(`正解は「${correct}」！\n${summary}`); renderStat();
@@ -285,7 +287,7 @@ const H = {
       const os = others(p).filter(o => !o.done);
       if (os.length) { const o = pick(os); [p.pos, o.pos] = [o.pos, p.pos]; t = `${N(o)}と位置が入れ替わった！`; } else t = '誰もいなかった…';
     }
-    renderTokens(); say(t); log(`${N(p)}：${t}`);
+    sfx('warp'); renderTokens(); say(t); log(`${N(p)}：${t}`);
   },
   rest: async p => { p.skip = 1; add(p, 100, 'ベッドで寝落ち…次回お休み💤'); },
   collab: async p => {
@@ -424,13 +426,13 @@ const H = {
   },
   goal: async p => {
     if (p.done) return;
-    p.done = true; p.rank = ++G.fin;
+    sfx('goal'); p.done = true; p.rank = ++G.fin;
     add(p, GOAL_BONUS[p.rank - 1], `${p.rank}位でゴール！🏁`);
   }
 };
 
 function finish() {
-  G.over = true; Net.over = true; Net.bc({ k: 'end' });
+  G.over = true; Net.over = true; _sfx('result'); updateBgm(); Net.bc({ k: 'end' });
   const K = MONEY_SCALE;
   const lines = p => {
     const r = [['💰 所持金（ゴール順ボーナス込み）', p.money, false]];
@@ -467,4 +469,4 @@ function finish() {
     ${Net.on ? '<p class="lead">ホストが「ルームに戻る」を押すと、戻ってきた人が同じルームに集まります。</p>' : ''}`;
   $('#result').showModal();
 }
-window.VER_GAME = '2026.10.23-a';
+window.VER_GAME = '2026.10.24-a';

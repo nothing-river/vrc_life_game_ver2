@@ -22,7 +22,7 @@ function boost(p, n) {
   }
   return G.global && G.global.lossF ? n * G.global.lossF : n;
 }
-function gainSugar(p) { p.sugar++; if (p.sugar === 1) { p.love = 5; p.trait = pick(Object.keys(TRAITS)); p.annTurn = 0; } }
+function gainSugar(p) { sfx('love'); p.sugar++; if (p.sugar === 1) { p.love = 5; p.trait = pick(Object.keys(TRAITS)); p.annTurn = 0; } }
 function breakAlly(p, o) { p.ally = null; p.allyN = 0; if (o) { o.ally = null; o.allyN = 0; } log(`🔗 ${N(p)}${o ? 'と' + N(o) : ''}の同盟が終わった`); }
 function moveMoney(from, to, amt, why) {
   amt = Math.max(0, Math.min(amt, Math.max(from.money, 0))); from.money -= amt; to.money += amt;
@@ -76,11 +76,30 @@ function onPick(v) {
   if (!G.ask.seats.includes(my)) return;
   if (!Net.on || Net.host) submitAns(my, v); else Net.conn.send({ k: 'pick', v });
 }
+// 観戦：対戦に参加していない人にも、ミニゲームの進み具合がリアルタイムで見える
+let specState = {}, lastAskId = -1;
+function _prog(seat, text) { specState[seat] = text; renderSpec(); }
+function renderSpec() {
+  const el = $('#specbox'); if (!el) return;
+  el.innerHTML = Object.keys(specState).map(s => `<div class="sp">${fmt(`\u0001${s}\u0002`, true)} ${esc(specState[s])}</div>`).join('');
+}
+function hostProg(seat, pl) { // 参加者の進み具合をホストが検証して全員に配信（表示のためだけ。勝敗は別に集計）
+  if (!G.ask || !G.ask.seats.includes(seat) || !pl || typeof pl !== 'object') return;
+  const n = Math.min(9999, Math.max(0, Math.floor(+pl.n) || 0)), ms = Math.min(9999, Math.max(0, Math.floor(+pl.ms) || 0));
+  const T = { wait: '😬 構え中…', go: '🟢 GO！', ms: `⏱ ${ms}ms`, bad: '❌ フライング', tap: `👆 ${n}回`, end: `🏁 ${n}回` }[pl.s]; if (!T) return;
+  _prog(seat, T); Net.bc({ k: 'prog', seat, text: T });
+}
+function sendProg(pl) { if (!Net.on) return; if (Net.host) hostProg(Net.seat, pl); else Net.conn.send({ k: 'prog', p: pl }); }
+function renderGlobalBar() {
+  const el = $('#globalbar'); if (!el) return;
+  el.innerHTML = G.global ? `<div class="gb"><b>🌐 全体イベント中：${esc(G.global.icon)}${esc(G.global.name)}</b><span>${esc(G.global.desc)}（あと${G.global.left}ラウンド）</span></div>` : '';
+}
 function renderAsk() {
   const a = G.ask, el = $('#route');
   if (!a) { if (askSig) { el.innerHTML = ''; askSig = ''; } return; }
   const my = Net.on ? Net.seat : a.seats[0], can = a.seats.includes(my) && !a.done.includes(my);
   const mini = can && (a.kind === 'react' || a.kind === 'tap');
+  if (a.id !== lastAskId) { specState = {}; lastAskId = a.id; }
   const sig = JSON.stringify([a.id, a.done, can, my]);
   if (sig !== askSig) {
     askSig = sig;
@@ -89,9 +108,11 @@ function renderAsk() {
     if (mini) h += '<div class="rtw">🎮 ミニゲーム画面が開きます…</div>';
     else if (can && a.kind === 'number') h += '<div class="qnum"><input type="number" id="ansnum" placeholder="数字を入力"><button class="rt" id="ansgo">送信</button></div>';
     else if (can) h += a.opts.map((o, i) => `<button class="rt" data-i="${i}">${esc(o)}</button>`).join('');
-    else h += `<div class="rtw">⏳ 待っています：${wait || '…'}</div>`;
+    else { const dn = a.done.map(s => fmt(`\u0001${s}\u0002`, true)).join(' '); h += `<div class="rtw">👀 観戦中：${wait || '…'} が操作中${dn ? '<br>✅ 完了：' + dn : ''}</div>`; }
+    if (a.seats.length > 1 || a.kind === 'react' || a.kind === 'tap') h += '<div id="specbox"></div>';
     el.innerHTML = h;
   }
+  renderSpec();
   if (mini && !miniOpen) openMini(a.kind, a.title, v => onPick(v));
 }
 
@@ -106,17 +127,17 @@ function openMini(kind, title, done) {
     const b = d.querySelector('#mbtn'); let st = 0, t0 = 0, to = null;
     b.onpointerdown = ev => {
       ev.preventDefault();
-      if (st === 0) { st = 1; b.textContent = '…待って…'; b.className = 'mbig wait'; to = setTimeout(() => { st = 2; b.textContent = '今だ！！'; b.className = 'mbig go'; t0 = performance.now(); }, 1500 + Math.random() * 2500); }
-      else if (st === 1) { clearTimeout(to); st = 3; b.textContent = 'フライング！'; b.className = 'mbig bad'; fin(9999); }
-      else if (st === 2) { st = 3; const ms = Math.round(performance.now() - t0); b.textContent = `${ms}ms`; b.className = 'mbig ok'; fin(ms); }
+      if (st === 0) { st = 1; b.textContent = '…待って…'; b.className = 'mbig wait'; sendProg({ s: 'wait' }); to = setTimeout(() => { st = 2; b.textContent = '今だ！！'; b.className = 'mbig go'; t0 = performance.now(); sendProg({ s: 'go' }); }, 1500 + Math.random() * 2500); }
+      else if (st === 1) { clearTimeout(to); st = 3; b.textContent = 'フライング！'; b.className = 'mbig bad'; sendProg({ s: 'bad' }); fin(9999); }
+      else if (st === 2) { st = 3; const ms = Math.round(performance.now() - t0); b.textContent = `${ms}ms`; b.className = 'mbig ok'; sendProg({ s: 'ms', ms }); fin(ms); }
     };
   } else {
     d.innerHTML = head + '<p>スタートを押したら<b>5秒間</b>、できるだけ連打！</p><button class="mbig" id="mbtn">スタート</button>';
-    const b = d.querySelector('#mbtn'); let st = 0, n = 0, left = 5;
+    const b = d.querySelector('#mbtn'); let st = 0, n = 0, left = 5, lastP = 0;
     b.onpointerdown = ev => {
       ev.preventDefault();
-      if (st === 0) { st = 1; n = 0; b.className = 'mbig go'; b.textContent = `0回 / 残り5秒`; const iv = setInterval(() => { left--; b.textContent = `${n}回 / 残り${left}秒`; if (left <= 0) { clearInterval(iv); st = 2; b.className = 'mbig ok'; b.textContent = `${n}回！`; fin(n); } }, 1000); }
-      else if (st === 1) { n++; b.textContent = `${n}回 / 残り${left}秒`; }
+      if (st === 0) { st = 1; n = 0; b.className = 'mbig go'; b.textContent = `0回 / 残り5秒`; const iv = setInterval(() => { left--; b.textContent = `${n}回 / 残り${left}秒`; if (left <= 0) { clearInterval(iv); st = 2; b.className = 'mbig ok'; b.textContent = `${n}回！`; sendProg({ s: 'end', n }); fin(n); } }, 1000); }
+      else if (st === 1) { n++; b.textContent = `${n}回 / 残り${left}秒`; const now = Date.now(); if (now - lastP > 180) { lastP = now; sendProg({ s: 'tap', n }); } }
     };
   }
   d.showModal();
@@ -149,7 +170,7 @@ async function rollGlobal() {
   if (G.global && --G.global.left <= 0) { log(`🌐 全体イベント終了：${G.global.name}`); G.global = null; renderStat(); }
   if (G.global || G.round < 2 || Math.random() > 0.45) return;
   const g = pick(GLOBALS);
-  head(`🌐 全体イベント発生！${g.icon}${g.name}`, 'start'); say(`${g.icon} ${g.name}\n${g.desc}`); log(`🌐 全体イベント：${g.icon}${g.name}（${g.desc}）`);
+  sfx('global'); head(`🌐 全体イベント発生！${g.icon}${g.name}`, 'start'); say(`${g.icon} ${g.name}\n${g.desc}`); log(`🌐 全体イベント：${g.icon}${g.name}（${g.desc}）`);
   if (g.skipAll) G.ps.forEach(q => { if (!q.done) q.skip += 1; });
   if (g.gift) G.ps.forEach(q => { if (!q.done) q.money += Math.round(g.gift * K / 1000) * 1000; });
   if (g.rounds > 0) G.global = { icon: g.icon, name: g.name, desc: g.desc, left: g.rounds, types: g.types || null, f: g.f || 1, lossF: g.lossF || 0 };
@@ -223,14 +244,15 @@ Object.assign(H, {
   duel: async p => {
     if (!battleOn()) return H.pay(p);
     const foes = foesOf(p); if (!foes.length) return add(p, 200, '対戦相手がいないので不戦勝（賞金）');
-    const me = idxOf(p), o = foes.length === 1 ? foes[0] : foes[await askOne(me, `${N(p)}：対戦相手を選ぼう`, foes.map(x => x.name))];
+    const me = idxOf(p), o = pick(foes); // 相手・ゲーム・賭け金はランダムで決まる
     const games = ['🎲 ダイス勝負', '🎰 チンチロ', '🃏 ハイ&ロー', '⚡ 反応速度', '👆 連打（5秒）'];
-    const gi = await askOne(me, `${N(p)}：ゲームを選ぼう`, games);
-    const bets = [300, 600, 1200].map(v => v * K), bet = bets[await askOne(me, `${N(p)}：賭け金を決めよう`, bets.map(yen))];
-    say(`⚔️ ${N(p)} VS ${N(o)}\n${games[gi]}　賭け金 ${yen(bet)}`); log(`${N(p)}が${N(o)}に${games[gi]}を挑んだ（${yen(bet)}）`); await sleep(2200);
+    const gi = rnd(0, games.length - 1), bet = pick([300, 600, 1200]) * K;
+    const both = [me, idxOf(o)]; // 対戦する2人（サイコロは各自が自分で振る）
+    say(`⚔️ 対戦！ランダムで決定\n${N(p)} VS ${N(o)}\n${games[gi]}　賭け金 ${yen(bet)}`); log(`${N(p)}が${N(o)}に${games[gi]}を挑んだ（${yen(bet)}）`); await sleep(3200);
     let w = 0;
     if (gi === 0) {
       for (let t = 0; t < 3; t++) {
+        await askMany(both, '🎲 サイコロを振ろう！（ボタンを押す）', ['🎲 振る'], 'choice', 30);
         const a = rnd(1, 6), b = rnd(1, 6); showDice(`${a} vs ${b}`); say(`🎲 ${N(p)}：${a}　${N(o)}：${b}`); await sleep(2000);
         if (a !== b) { w = a > b ? 1 : -1; break; } say('同点！もう一回'); await sleep(900);
       }
@@ -244,6 +266,7 @@ Object.assign(H, {
         return { s, txt: `🎲${d.join(' ')} ${nm}` };
       };
       for (let t = 0; t < 3; t++) {
+        await askMany(both, '🎰 チンチロ！サイコロを3つ振ろう', ['🎲🎲🎲 振る'], 'choice', 30);
         const a = chin(), b = chin(); say(`${N(p)}：${a.txt}\n${N(o)}：${b.txt}`); await sleep(2600);
         if (a.s !== b.s) { w = a.s > b.s ? 1 : -1; break; } say('引き分け！もう一回'); await sleep(900);
       }
@@ -253,13 +276,13 @@ Object.assign(H, {
       let b; do { b = rnd(1, 6); } while (b === a);
       showDice(`${a} → ${b}`); w = (g === 0) === (b > a) ? 1 : -1; say(`${a} → ${b}\n${w > 0 ? N(p) + 'の予想的中！' : N(p) + 'の予想ハズレ…'}`); await sleep(2200);
     } else {
-      const react = gi === 3, seats = [me, idxOf(o)];
+      const react = gi === 3, seats = both;
       const r = await askMany(seats, react ? '⚡ 反応速度勝負！緑になったらタップ' : '👆 連打勝負！5秒間できるだけ連打', [], react ? 'react' : 'tap', 60);
       const a = r[seats[0]], b = r[seats[1]], fmtS = v => react ? (v >= 9999 ? 'フライング/未入力' : v + 'ms') : v + '回';
       w = a === b ? 0 : (react ? a < b : a > b) ? 1 : -1; say(`${N(p)}：${fmtS(a)}\n${N(o)}：${fmtS(b)}`); await sleep(2800);
     }
     if (!w) { say('引き分け！賭け金の移動なし'); log(`${N(p)}と${N(o)}の勝負は引き分け`); }
-    else { const win = w > 0 ? p : o, lose = w > 0 ? o : p; bump(win, 'duel'); moveMoney(lose, win, bet, '⚔️ 対戦に勝利！'); }
+    else { const win = w > 0 ? p : o, lose = w > 0 ? o : p; sfx('win'); bump(win, 'duel'); moveMoney(lose, win, bet, '⚔️ 対戦に勝利！'); }
   },
   tax: async p => {
     const rich = [...G.ps].sort((a, b) => b.money - a.money)[0], poor = [...G.ps].sort((a, b) => a.money - b.money)[0];
@@ -293,8 +316,8 @@ Object.assign(H, {
   },
   detective: async p => {
     const foes = foesOf(p); if (!foes.length) return note(p, '調べる相手がいない');
-    const o = foes.length === 1 ? foes[0] : foes[await askOne(idxOf(p), '🔎 誰の秘密を調べる？', foes.map(x => x.name))];
-    say(`🔎 ${N(o)}を調査中…`); await sleep(1800);
+    const o = pick(foes);
+    say(`🔎 ランダムで${N(o)}を調査中…`); await sleep(1800);
     if (o.sugar >= 2 && !o.exposed) { o.exposed = true; fame(o, -1); add(o, -300, '多糖が暴露された！'); await sleep(1500); losesugar(o, 1, '暴露されて1人と破局'); await sleep(1500); add(p, 600, '探偵の成功報酬'); }
     else if (o.sugar >= 2) add(p, 300, 'すでに知られた秘密…ささやかな報酬');
     else { say(`🔎 ${N(o)}の秘密：\nお砂糖${o.sugar}人 / 元お砂糖${o.exes}人 / 友達${o.friends}人`); await sleep(2500); add(p, -100, '調査費用だけがかかった'); }
@@ -303,11 +326,11 @@ Object.assign(H, {
     if (!battleOn()) return H.sugar(p);
     const foes = foesOf(p).filter(o => o.sugar > 0); if (!foes.length) return note(p, '略奪できるお砂糖を持つ人がいない…');
     if (p.sugar >= 3) return note(p, 'お砂糖が多すぎて手が回らない');
-    const o = foes.length === 1 ? foes[0] : foes[await askOne(idxOf(p), '💘 誰のお砂糖を狙う？', foes.map(x => x.name))];
+    const o = pick(foes);
     if (guarded(o, 'お砂糖の略奪')) return;
     const rv = p.revenge === idxOf(o);
     let ch = o.married ? .25 : o.live ? .4 : .6; ch += (o.love <= 3 ? .15 : o.love >= 8 ? -.15 : 0) + (rv ? .2 : 0);
-    say(`💘 ${N(p)}が${N(o)}のお砂糖を狙う…${rv ? '（復讐戦！）' : ''}\n成功率 ${Math.round(ch * 100)}%`); await sleep(2400);
+    say(`💘 ランダムで${N(o)}のお砂糖が標的に…${rv ? '（復讐戦！）' : ''}\n成功率 ${Math.round(ch * 100)}%`); await sleep(2400);
     if (Math.random() < ch) { losesugar(o, 1, `${N(p)}にお砂糖を奪われた`); o.revenge = idxOf(p); gainSugar(p); fame(p, -1); bump(p, 'rob'); await sleep(1500); note(p, '💘 略奪成功！新しいお砂糖ができた（人気度-1）'); }
     else { add(p, -400, '略奪失敗…気まずい空気', -1); add(o, 200, '略奪を撃退！'); }
   },
@@ -320,7 +343,7 @@ Object.assign(H, {
       return;
     }
     const foes = foesOf(p).filter(o => o.ally == null); if (!foes.length) return note(p, '同盟を組める相手がいない');
-    const o = foes.length === 1 ? foes[0] : foes[await askOne(me, '🔗 誰と同盟を組む？', foes.map(x => x.name))];
+    const o = pick(foes);
     const yes = await askOne(idxOf(o), `🔗 ${N(p)}から同盟の申し込み！（5手番、お互いの収入の30%が入る）`, ['組む', '断る']);
     if (yes === 0) { p.ally = idxOf(o); o.ally = me; p.allyN = o.allyN = 5; note(p, `🔗 ${N(p)}と${N(o)}が同盟を結んだ！`); } else note(p, `${N(o)}は同盟を断った`);
   }
@@ -333,4 +356,4 @@ H.marry = async p => {
   if (!was && p.married) { const os = foesOf(p); if (os.length) { await sleep(1500); const o = pick(os); add(o, 500, '💐 結婚式のブーケをキャッチ！'); if (!o.sugar && rnd(1, 3) === 1) { gainSugar(o); note(o, 'ブーケがきっかけでお砂糖ができた🍬'); } } }
 };
 H.ex = async p => { const e0 = p.exes, s0 = p.sugar; await _ex(p); if (p.exes < e0 && p.sugar > s0) bump(p, 'reunion'); };
-window.VER_EXTRA = '2026.10.23-a';
+window.VER_EXTRA = '2026.10.24-a';
